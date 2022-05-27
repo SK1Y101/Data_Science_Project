@@ -1,25 +1,18 @@
 # Data_Science_Project
 This is an implementation of a data science pipeline that predicts the outcome of a football match.
 
+# Example Project Documentation Guideline
 
-## High level relationships
-- 14 leagues
- - data begining 1990
- - typically 380 games per season
-  - 190 unique opponent combinations, as each team plays both an away and home against each other team
-  - gives 20 teams per league (20 Choose 2 = 190)
+> Include here a brief description of the project, what technologies are used etc.
 
-formula for number of teams:
+## Milestone 1
 
-combinations of n, given a smaple size r = n! / (r! (n-r)!)
+- Answer some of these questions in the next few bullet points. What have you built? What technologies have you used? Why have you used those?
 
-d = length of data
+- Example: The FastAPI framework allows for fast and easy construction of APIs and is combined with pydantic, which is used to assert the data types of all incoming data to allow for easier processing later on. The server is ran locally using uvicorn, a library for ASGI server implementation.
+  
+```python
+"""Insert your code here"""
+```
 
-there are two teams playing, thus
-
-d / 2 = n! / (2! (n-2)!)
-
-Simplifies to
-d = n (n-1)
-
-## Trends
+> Insert an image/screenshot of what you have built so far here.
