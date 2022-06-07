@@ -111,11 +111,7 @@ def cleanData():
             total_point = np.append(home, away).astype(np.int16).sum()
 
             # longest streak
-            #thisteam = np.logical_or(hometeam, awayteam)
             points = pd.concat((home, away)).sort_index()
-            t = len(np.where(points==1)[0])
-            l = len(np.where(points==0)[0])
-            w = len(np.where(points==3)[0])
             streakGroup = [list(group) for item, group in groupby(points) if item == 3]
             streak = len(max(streakGroup, key=len)) if streakGroup else 0
 
@@ -127,11 +123,17 @@ def cleanData():
             addToDict(cleaned_dataset, "bestPoints", total_point, loc, mode="replaceIfMore")
             addToDict(cleaned_dataset, "worstPoints", total_point, loc, mode="replaceIfLess")
             addToDict(cleaned_dataset, "totalPoints", total_point, loc, mode="add")
-            addToDict(cleaned_dataset, "wins", w, loc, mode="add")
-            addToDict(cleaned_dataset, "losses", l, loc, mode="add")
-            addToDict(cleaned_dataset, "ties", t, loc, mode="add")
             addToDict(cleaned_dataset, "streak", streak, loc, mode="replace")
             addToDict(cleaned_dataset, "beststreak", streak, loc, mode="replaceIfMore")
+
+            for place, thispoint in zip(["home", "away", "total"], [home, away, points]):
+                t = len(np.where(thispoint==1)[0])
+                l = len(np.where(thispoint==0)[0])
+                w = len(np.where(thispoint==3)[0])
+                addToDict(cleaned_dataset, f"{place}Wins", w, loc, mode="add")
+                addToDict(cleaned_dataset, f"{place}Losses", l, loc, mode="add")
+                addToDict(cleaned_dataset, f"{place}Ties", t, loc, mode="add")
+
     # convert to dataframe
     clean = pd.DataFrame(cleaned_dataset)
     # and save
