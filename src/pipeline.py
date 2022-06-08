@@ -3,7 +3,7 @@ import pandas as pd
 
 # own scripts
 from connect_to_db import connect
-import legacy.dataMainpulation as dManip
+import dataManipulation as dManip
 
 def saveDB():
     ''' Save the cleaned dataset to the remote database. '''

@@ -78,8 +78,8 @@ def loadRawData():
         # number of games
         games = max(score.shape)
         # score
-        df["homeScore"] = score[:,0]
-        df["awayScore"] = score[:,1]
+        df["homeScore"] = score[:,0].astype(np.int64)
+        df["awayScore"] = score[:,1].astype(np.int64)
         # points, 1 point for a tie, 3 points for a win
         tie = score[:,0] == score[:,1]
         hw = score[:,0] > score[:,1]
@@ -100,6 +100,23 @@ def loadRawData():
         else:
             outdf = pd.concat((outdf, df))
     return outdf.reset_index()
+
+def determineOutcome(df):
+    ''' determine the win/loss outcome of a match. '''
+    homeWin = np.where(df["homeScore"] > df["awayScore"])[0]
+    awayWin = np.where(df["awayScore"] > df["homeScore"])[0]
+    draw = np.where(df["awayScore"] == df["homeScore"])[0]
+    zero = np.where(df["homeScore"] == 0)[0]
+    zerodraw = np.intersect1d(draw, zero)
+
+    outcome = np.ones(len(df)).astype(np.int64)
+    # 0 for zero draw, 1 for nonzerodraw, 2 for homewin, 3 for awaywin
+    outcome[homeWin] = 2
+    outcome[awayWin] = 3
+    outcome[zerodraw] = 0
+    df["outcome"] = outcome
+    return df
+
 
 def cummulativeGoals(df):
     ''' compute the cumulative goals for the dataframe '''
@@ -162,6 +179,17 @@ def cummulativeGoals(df):
 
     return df
 
+def toTeamID(df):
+    # fetch the unique teams
+    teams = np.unique(np.append(df["Home_Team"], df["Away_Team"]))
+
+    for idx, team in tqdm(enumerate(teams), desc="Saving teamIDs", total=len(teams)):
+        df.replace(team, idx, inplace=True)
+    # save the teams somewhere else
+    np.save("src/teamID", teams)
+
+    return df
+
 def cleanData():
     ''' load and clean the dataset. '''
     eloDict = pickle.load(open("src/elo_dict.pkl", "rb"))
@@ -180,6 +208,12 @@ def cleanData():
     # commulative statistics
     rawDf = cummulativeGoals(rawDf.copy())
 
+    # determine the outcome for each match
+    rawDf = determineOutcome(rawDf.copy())
+
+    # convert team names to unique floats
+    rawDf = toTeamID(rawDf.copy())
+
     # remove irrelecant details
     rawDf = rawDf.drop("Link", axis=1)
     rawDf = rawDf.drop("Result", axis=1)
@@ -187,4 +221,5 @@ def cleanData():
     # and save
     rawDf.to_csv("src/cleaned_dataset.csv", index=False)
 
-cleanData()
+if __name__ == "__main__":
+    cleanData()
