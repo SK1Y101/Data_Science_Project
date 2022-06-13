@@ -2,7 +2,7 @@
 import matplotlib.pylab as plt
 import pandas as pd
 import numpy as np
-import os
+import os, joblib
 
 # ai stuff
 from sklearn.feature_selection import SelectKBest, chi2
@@ -10,7 +10,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import RobustScaler
 from sklearn.metrics import accuracy_score
-from sklearn.externals import joblib
 
 def loadData(testSize=0.2):
     ''' load the dataset required, with a test/train split.
