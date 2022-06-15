@@ -4,10 +4,17 @@ import pandas as pd
 import numpy as np
 import os, joblib
 
-# ai stuff
+# sklearn models
+from sklearn.linear_model import LassoLarsIC, LinearRegression, SGDClassifier
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.neural_network import MLPClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import BaggingClassifier
+from sklearn.naive_bayes import GaussianNB
+
+# sklearn training and utility
 from sklearn.feature_selection import SelectKBest, chi2
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import RobustScaler
 from sklearn.metrics import accuracy_score
 
@@ -69,9 +76,10 @@ def trainModel(model, trainData):
         ax.set_xlim([0, len(lc)])
         ax.set_ylim([min(lc), max(lc)])
         ax.text(len(lc)-1, lc[-1], "Final loss: {:.4f}".format(lc[-1]), ha="right", va="bottom")
-        ax.set_xlable("Itteration")
+        ax.set_xlabel("Itteration")
         ax.set_ylabel("Loss")
-        ax.set_yscale("Log")
+        ax.set_yscale("log")
+        plt.show()
 
 def performace(model, trainData, testData):
     ''' Demonstrate the performance of a model, and retun it.
@@ -101,25 +109,88 @@ def performace(model, trainData, testData):
     print("- Difference:{:0.4f}".format(diff))
     return atest, atrain
 
-def selectFeatures(trainData, testData, cols):
-    xnew = SelectKBest(chi2, k=2).fit_transform(abs(trainData["x"]), trainData["y"])
-    print(xnew.shape, trainData["x"].shape)
-    features = [(x, y) for x in range(trainData["x"].shape[1]) for y in range(xnew.shape[1]) if all(trainData["x"][:,x] == xnew[:,y])]
-    print(features)
-    print([cols[feat] for feat,idx in features])
+def subData(data, idx=0):
+    return {"x":data["x"][:,idx], "y":data["y"]}
+
+def selectFeatures(trainData, testData, cols, n=4):
+    # select the best 'n' features
+    xnew = SelectKBest(chi2, k=n).fit_transform(abs(trainData["x"]), trainData["y"])
+    # determine which columns from the training set correspond to the best features
+    features = [(x, y) for x in range(trainData["x"].shape[1]) for y in range(xnew.shape[1]) if all(abs(trainData["x"][:,x]) == abs(xnew[:,y]))]
+    # fetch the names of the best features
+    ncols = ([cols[feat] for feat,idx in features])
+    # fetch the required indicies from the data
+    ntrain = subData(trainData, np.array(features)[:,1])
+    ntest  = subData(testData, np.array(features)[:,1])
+    # return
+    return ntrain, ntest, ncols
+
+def zeroPad(model, data):
+    # fetch the number of required features
+    inp, dx = model.n_features_in_, data["x"]
+    # initial array
+    zs = np.zeros((dx.shape[0], inp))
+    # insert data
+    zs[:,range(dx.shape[1])] = dx
+    return {"x":zs, "y":data["y"]}
+
+def createNewModels():
+    # Linear model
+    line = LassoLarsIC()
+    # Discriminant Analysis
+    disc = LinearDiscriminantAnalysis()
+    # Gradient Descent
+    grad = SGDClassifier()
+    # Naive Bayes
+    naiv = GaussianNB()
+    # Descision Tree
+    desc = DecisionTreeClassifier()
+    # Ensemble
+    ense = BaggingClassifier()
+    # standard neural network
+    mlpc = MLPClassifier()
+    # return them all in a list
+    return [line, disc, grad, naiv, desc, ense, mlpc]
+
+def trainAndScore(models, trainData, testData):
+    scores, models = {}, models if isinstance(models, list) else [models]
+    for model in models:
+        trainModel(model, trainData)
+        baseline = performace(model, trainData, testData)
+        scores[model] = baseline
+    return scores
+
+def scoreModels(models):
+    # fetch the scores for each model
+    scores = [[model]+list(models[model]) for model in models]
+    # sort by test data scores
+    scores = sorted(scores, key=lambda x:(x[1], x[2]), reverse=True)
+    return scores[0][0]
 
 def main():
     ''' Main program area.'''
     trainData, testData, cols = loadData()
     # simple linear regression
-    sMod = loadModel()
+    sMod = loadModel("src/baseline.joblib")
     # train it and obtain a baseline score
-    trainModel(sMod, trainData)
-    baseline = performace(sMod, trainData, testData)
+    base = trainAndScore(sMod, trainData, testData)
     # save the model
-    saveModel(sMod, "baseline.joblib")
-    # select features
-    selectFeatures(trainData, testData, cols)
+    saveModel(sMod, "src/baseline.joblib")
+    # select the best features
+    ntrainData, ntestData, ncols = selectFeatures(trainData, testData, cols, 5)
+    # use the shorter dataset
+    base2 = trainAndScore(sMod, ntrainData, ntestData)
+    # generate new models
+    models = createNewModels()
+    # also introduce the previous best model for fun
+    prevBest = loadModel("src/model.joblib")
+    if prevBest:
+        models.append(prevBest)
+    # and generate a score for the new models
+    base3 = trainAndScore([sMod]+models, ntrainData, ntestData)
+    # fetch the model that performed best on the test data, and save it
+    bestModel = scoreModels(base3)
+    saveModel(bestModel, "src/model.joblib")
 
 if __name__ == "__main__":
     main()
