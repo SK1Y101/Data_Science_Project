@@ -62,18 +62,8 @@ We perform feature selection, using the 'sklearn.feature_selection.SelectKBest' 
 
 We then generate several new models, such as a Multi-Layer-Percentron, Naive bayes, and Descision Tree clasifier, and determine which of the models performed best on the testing set.
 
-The best model is then itteratively trained with subsets of the data that willbetter fit potential new data, and is saved as 'model.joblib'.
-
-> Insert an image/screenshot of what you have built so far here.
+The best model is then trained with subsets of the data that willbetter fit potential new data, ie: those matches that took place more recently, and is saved as 'model.joblib'.
 
 ## Milestone 5, Inference
 
-- Answer some of these questions in the next few bullet points. What have you built? What technologies have you used? Why have you used those?
-
-- Example: The FastAPI framework allows for fast and easy construction of APIs and is combined with pydantic, which is used to assert the data types of all incoming data to allow for easier processing later on. The server is ran locally using uvicorn, a library for ASGI server implementation.
-  
-```python
-"""Insert your code here"""
-```
-
-> Insert an image/screenshot of what you have built so far here.
+WIP
