@@ -49,15 +49,20 @@ As part of the upload, we also re-run the feature engineering script, to ensure 
 
 ## Milestone 4, Model Training
 
-Currently W.I.P.
+Technologies: Sklearn, Pandas
 
-- Answer some of these questions in the next few bullet points. What have you built? What technologies have you used? Why have you used those?
+We fetch the cleaned dataset from milestone 2, and attempt to make predictions using sklearn.
 
-- Example: The FastAPI framework allows for fast and easy construction of APIs and is combined with pydantic, which is used to assert the data types of all incoming data to allow for easier processing later on. The server is ran locally using uvicorn, a library for ASGI server implementation.
-  
-```python
-"""Insert your code here"""
-```
+Because the data is a mix of numeric and string, we perform a quick preprocessing step, where irrelevant information like league name is removed, and important information, like team names, are replaced with unique id's (Which are stored in a seperate file).
+We also split the data in a training set to train the models, and a testing set to determine their accuracy on unseen data.
+
+We then determine a baseline score by fitting this data with a simple logistic regressor.
+
+We perform feature selection, using the 'sklearn.feature_selection.SelectKBest' to determine which features affect the output most, and rescore the baseline.
+
+We then generate several new models, such as a Multi-Layer-Percentron, Naive bayes, and Descision Tree clasifier, and determine which of the models performed best on the testing set.
+
+The best model is then itteratively trained with subsets of the data that willbetter fit potential new data, and is saved as 'model.joblib'.
 
 > Insert an image/screenshot of what you have built so far here.
 

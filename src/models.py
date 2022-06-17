@@ -22,7 +22,10 @@ def loadData(testSize=0.2):
     ''' load the dataset required, with a test/train split.
         testSize: The fraction of the dataset used for testing validation.
     '''
-    data = pd.read_csv("src/cleaned_dataset.csv")
+    try:
+        data = pd.read_csv("src/cleaned_dataset.csv")
+    except:
+        data = pd.read_csv("cleaned_dataset.csv")
     # remove NaN values
     data = data.dropna()
     # remove the Y data from the X column, and also remove strings
@@ -30,7 +33,7 @@ def loadData(testSize=0.2):
     Y = data["outcome"].to_numpy()
     cols=X.columns
     # rescale
-    X, Y = rescaleData(X, Y)
+    #X, Y = rescaleData(X, Y)
     # and split
     xtrain, xtest, ytrain, ytest = train_test_split(X, Y, test_size=testSize, shuffle=True)
     return {"x":xtrain, "y":ytrain}, {"x":xtest, "y":ytest}, cols
@@ -50,7 +53,7 @@ def loadModel(name="baseline.joblib"):
     if os.path.exists(name):
         return joblib.load(name)
     # if we are fetching the baseline, and it dosen't exist, create one
-    elif name=="baseline.joblib":
+    elif "baseline.joblib" in name:
         return LinearRegression()
 
 def saveModel(model, name):
@@ -79,7 +82,7 @@ def trainModel(model, trainData):
         ax.set_xlabel("Itteration")
         ax.set_ylabel("Loss")
         ax.set_yscale("log")
-        plt.show()
+        plt.draw()
 
 def performace(model, trainData, testData):
     ''' Demonstrate the performance of a model, and retun it.
@@ -110,20 +113,30 @@ def performace(model, trainData, testData):
     return atest, atrain
 
 def subData(data, idx=0):
-    return {"x":data["x"][:,idx], "y":data["y"]}
+    # if the data is stored as a numpy array, we can use shorthand
+    try:
+        return {"x":data["x"][:,idx], "y":data["y"]}
+    # otherwise, use pandas handling
+    except:
+        return {"x":data["x"].iloc[:,idx], "y":data["y"]}
 
 def selectFeatures(trainData, testData, cols, n=4):
     # select the best 'n' features
-    xnew = SelectKBest(chi2, k=n).fit_transform(abs(trainData["x"]), trainData["y"])
+    xnew = SelectKBest(chi2, k=n).fit_transform(trainData["x"], trainData["y"])
     # determine which columns from the training set correspond to the best features
-    features = [(x, y) for x in range(trainData["x"].shape[1]) for y in range(xnew.shape[1]) if all(abs(trainData["x"][:,x]) == abs(xnew[:,y]))]
+    features = []
+    for x, col in enumerate(xnew.T):
+        for y, data in enumerate(trainData["x"]):
+            if (trainData["x"][data] == col.T).all():
+                features.append((x, y))
+                break
     # fetch the names of the best features
     ncols = ([cols[feat] for feat,idx in features])
     # fetch the required indicies from the data
     ntrain = subData(trainData, np.array(features)[:,1])
     ntest  = subData(testData, np.array(features)[:,1])
     # return
-    return ntrain, ntest, ncols
+    return ntrain, ntest, ncols, features
 
 def zeroPad(model, data):
     # fetch the number of required features
@@ -165,7 +178,15 @@ def scoreModels(models):
     scores = [[model]+list(models[model]) for model in models]
     # sort by test data scores
     scores = sorted(scores, key=lambda x:(x[1], x[2]), reverse=True)
+    print(f"{scores[0][0].__class__.__name__} performed the best on the testing set.")
+    # rename the model
+    scores[0][0].__class__.__name__ = f"{scores[0][0].__class__.__name__}_best"
     return scores[0][0]
+
+def subSet(data, idx=np.zeros(1)):
+    if idx.dtype is np.dtype(bool):
+        idx = np.where(idx)[0]
+    return {"x":data["x"].iloc[idx], "y":data["y"][idx]}
 
 def main():
     ''' Main program area.'''
@@ -173,12 +194,14 @@ def main():
     # simple linear regression
     sMod = loadModel("src/baseline.joblib")
     # train it and obtain a baseline score
+    print("\nInitial training")
     base = trainAndScore(sMod, trainData, testData)
     # save the model
     saveModel(sMod, "src/baseline.joblib")
     # select the best features
-    ntrainData, ntestData, ncols = selectFeatures(trainData, testData, cols, 5)
+    ntrainData, ntestData, ncols, nfeat = selectFeatures(trainData, testData, cols, 5)
     # use the shorter dataset
+    print(f"\nUsing the best {len(ncols)} features of the dataset")
     base2 = trainAndScore(sMod, ntrainData, ntestData)
     # generate new models
     models = createNewModels()
@@ -187,10 +210,18 @@ def main():
     if prevBest:
         models.append(prevBest)
     # and generate a score for the new models
+    print(f"training {len(models)} new models on the dataset")
     base3 = trainAndScore([sMod]+models, ntrainData, ntestData)
     # fetch the model that performed best on the test data, and save it
     bestModel = scoreModels(base3)
+    # itteratively train on different parts of the dataset
+    strainData = subSet(ntrainData, trainData["x"]["Season"] >= 2000)
+    stestData = subSet(ntestData, testData["x"]["Season"] >= 2000)
+    print("\nUsing a specific subset of data with year greater than 2000")
+    base4 = trainAndScore(bestModel, strainData, stestData)
+    # and save the best model
     saveModel(bestModel, "src/model.joblib")
 
 if __name__ == "__main__":
     main()
+    plt.show()
