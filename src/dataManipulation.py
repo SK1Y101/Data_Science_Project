@@ -63,9 +63,12 @@ def loadRawData(folder):
     dataFiles = [f"{x[0]}/{y}" for x in list(os.walk(folder))[1:] for y in x[2]]
     # output
     outdf = ""
+    outpkl = []
     # load
     for file in tqdm(sorted(dataFiles), desc="Loading data"):
         # skip non csv files
+        if ".pkl" in file:
+            outpkl.append(file)
         if ".csv" not in file:
             continue
         df = pd.read_csv(file)
@@ -77,6 +80,12 @@ def loadRawData(folder):
         if len(score.shape) != 2:
             rem = [i for i, item in enumerate(score) if np.array(item).dtype != "<U1"]
             score = np.array([np.array(x) for x in np.delete(score, rem, axis=0)])
+            df = df.drop(rem)
+        # remove N/A from scores
+        if (score == "N/A").any():
+            keep = np.where((score != "N/A").any(axis=1))[0]
+            rem = np.where((score == "N/A").any(axis=1))[0]
+            score = score[keep]
             df = df.drop(rem)
         # number of games
         games = max(score.shape)
@@ -102,7 +111,7 @@ def loadRawData(folder):
         # else concat with old df
         else:
             outdf = pd.concat((outdf, df))
-    return outdf.reset_index()
+    return outdf.reset_index(), outpkl
 
 def determineOutcome(df):
     ''' determine the win/loss outcome of a match. '''
@@ -202,11 +211,18 @@ def toTeamID(df):
 
     return df
 
-def cleanData(folder, pkl, out):
+def cleanData(folder, out, pkl=""):
     ''' load and clean the dataset. '''
-    eloDict = pickle.load(open(pkl, "rb"))
+    eloDict = {}
+    if pkl:
+        eloDict = pickle.load(open(pkl, "rb"))
     # fetch the raw data
-    rawDf = loadRawData(folder)
+    rawDf, eloDict2 = loadRawData(folder)
+
+    # if we had extra pkl files too
+    if eloDict2:
+        for elo in eloDict2:
+            eloDict = dict(eloDict, **pickle.load(open(elo, "rb")))
 
     # combine the ELO and raw data
     eloHome, eloAway = [], []
@@ -230,6 +246,9 @@ def cleanData(folder, pkl, out):
     rawDf = rawDf.drop("Link", axis=1)
     rawDf = rawDf.drop("Result", axis=1)
 
+    # and empty columns
+    rawDf = rawDf.loc[:, ~rawDf.columns.str.contains('^Unnamed')]
+
     # and save
     rawDf.to_csv(out, index=False)
 
@@ -241,4 +260,5 @@ if __name__ == "__main__":
     # fetch the new dataset
     cleanData(folder="raw_data/New-Results",
               pkl="raw_data/New-Results/previous_elo_dict.pkl",
-              out="src/results_for_prediction.csv")
+              out="src/cleaned_results.csv.csv")
+    # apply to the prediction dataset
