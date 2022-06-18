@@ -57,14 +57,17 @@ def addToDict(dic, key, item, idx=None, mode="add"):
         else:
             dic[key][idx] += item
 
-def loadRawData():
+def loadRawData(folder):
     ''' load raw data from the directories and compile into a single dataframe'''
     # fetch each of the datafiles
-    dataFiles = [f"{x[0]}/{y}" for x in list(os.walk("raw_data/Football-Dataset"))[1:] for y in x[2]]
+    dataFiles = [f"{x[0]}/{y}" for x in list(os.walk(folder))[1:] for y in x[2]]
     # output
     outdf = ""
     # load
     for file in tqdm(sorted(dataFiles), desc="Loading data"):
+        # skip non csv files
+        if ".csv" not in file:
+            continue
         df = pd.read_csv(file)
         # skip empty dictionaries
         if not len(df):
@@ -183,6 +186,15 @@ def toTeamID(df):
     # fetch the unique teams
     teams = np.unique(np.append(df["Home_Team"], df["Away_Team"]))
 
+    # if we have unique team IDs stored already, use those too
+    if os.path.exists("src/teamID.npy"):
+        # fetch stored
+        teamID = np.load("src/teamID.npy", allow_pickle=True)
+        # filter new teams
+        teams = np.setdiff1d(teams, teamID)
+        # and combine
+        teams = np.concatenate((teamID, teams), axis=None)
+
     for idx, team in tqdm(enumerate(teams), desc="Saving teamIDs", total=len(teams)):
         df.replace(team, idx, inplace=True)
     # save the teams somewhere else
@@ -190,11 +202,11 @@ def toTeamID(df):
 
     return df
 
-def cleanData():
+def cleanData(folder, pkl, out):
     ''' load and clean the dataset. '''
-    eloDict = pickle.load(open("src/elo_dict.pkl", "rb"))
+    eloDict = pickle.load(open(pkl, "rb"))
     # fetch the raw data
-    rawDf = loadRawData()
+    rawDf = loadRawData(folder)
 
     # combine the ELO and raw data
     eloHome, eloAway = [], []
@@ -219,7 +231,14 @@ def cleanData():
     rawDf = rawDf.drop("Result", axis=1)
 
     # and save
-    rawDf.to_csv("src/cleaned_dataset.csv", index=False)
+    rawDf.to_csv(out, index=False)
 
 if __name__ == "__main__":
-    cleanData()
+    # fetch the initial football dataset
+    cleanData(folder="raw_data/Football-Dataset",
+              pkl="src/elo_dict.pkl",
+              out="src/cleaned_dataset.csv")
+    # fetch the new dataset
+    cleanData(folder="raw_data/New-Results",
+              pkl="raw_data/New-Results/previous_elo_dict.pkl",
+              out="src/results_for_prediction.csv")
