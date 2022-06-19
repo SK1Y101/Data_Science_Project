@@ -57,7 +57,7 @@ def addToDict(dic, key, item, idx=None, mode="add"):
         else:
             dic[key][idx] += item
 
-def loadRawData(folder):
+def loadRawData(folder, data="full"):
     ''' load raw data from the directories and compile into a single dataframe'''
     # fetch each of the datafiles
     dataFiles = [f"{x[0]}/{y}" for x in list(os.walk(folder))[1:] for y in x[2]]
@@ -72,9 +72,20 @@ def loadRawData(folder):
         if ".csv" not in file:
             continue
         df = pd.read_csv(file)
+
+        if data!="full":
+            # if old df not set yet, use here
+            if not len(outdf):
+                outdf = df.copy()
+            # else concat with old df
+            else:
+                outdf = pd.concat((outdf, df))
+            continue
+
         # skip empty dictionaries
         if not len(df):
             continue
+        
         score = np.array([list(x) if "(" not in x[0] else [x[0].split("(")[1], x[1].split(")")[0]] for x in df["Result"].str.split("-")], dtype="object")
         # remove scores that don't work
         if len(score.shape) != 2:
@@ -211,13 +222,13 @@ def toTeamID(df):
 
     return df
 
-def cleanData(folder, out, pkl=""):
+def cleanData(folder, out, pkl="", data="full"):
     ''' load and clean the dataset. '''
     eloDict = {}
     if pkl:
         eloDict = pickle.load(open(pkl, "rb"))
     # fetch the raw data
-    rawDf, eloDict2 = loadRawData(folder)
+    rawDf, eloDict2 = loadRawData(folder, data=data)
 
     # if we had extra pkl files too
     if eloDict2:
@@ -233,18 +244,20 @@ def cleanData(folder, out, pkl=""):
     rawDf["Elo_home"] = eloHome
     rawDf["Elo_away"] = eloAway
 
-    # commulative statistics
-    rawDf = cummulativeGoals(rawDf.copy())
+    if data != "raw":
+        # commulative statistics
+        rawDf = cummulativeGoals(rawDf.copy())
 
-    # determine the outcome for each match
-    rawDf = determineOutcome(rawDf.copy())
+        # determine the outcome for each match
+        rawDf = determineOutcome(rawDf.copy())
 
     # convert team names to unique floats
     rawDf = toTeamID(rawDf.copy())
 
-    # remove irrelecant details
-    rawDf = rawDf.drop("Link", axis=1)
-    rawDf = rawDf.drop("Result", axis=1)
+    # remove irrelevant details
+    for col in ["Result", "Link"]:
+        if col in rawDf.columns:
+            rawDf = rawDf.drop(col, axis=1)
 
     # and empty columns
     rawDf = rawDf.loc[:, ~rawDf.columns.str.contains('^Unnamed')]
@@ -260,5 +273,8 @@ if __name__ == "__main__":
     # fetch the new dataset
     cleanData(folder="raw_data/New-Results",
               pkl="raw_data/New-Results/previous_elo_dict.pkl",
-              out="src/cleaned_results.csv.csv")
+              out="src/cleaned_results.csv")
     # apply to the prediction dataset
+    cleanData(folder="raw_data/To-Predict",
+              out="src/to_predict.csv",
+              data="raw")

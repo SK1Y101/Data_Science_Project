@@ -1,4 +1,5 @@
 # python modules
+from genericpath import exists
 import matplotlib.pylab as plt
 import pandas as pd
 import numpy as np
@@ -18,25 +19,33 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import RobustScaler
 from sklearn.metrics import accuracy_score
 
-def loadData(testSize=0.2):
+def loadData(file="src/cleaned_dataset.csv", testSize=0.2, hasY=True):
     ''' load the dataset required, with a test/train split.
         testSize: The fraction of the dataset used for testing validation.
+        hasY: True if the dataset contains outcomes, False if not
     '''
-    try:
-        data = pd.read_csv("src/cleaned_dataset.csv")
-    except:
-        data = pd.read_csv("cleaned_dataset.csv")
+    if os.path.exists(file):
+        data = pd.read_csv(file)
+    else:
+        print(file.split("/")[-1])
+        data = pd.read_csv(file.split("/")[-1])
     # remove NaN values
-    data = data.dropna()
+    data = data.dropna(axis=1)
     # remove the Y data from the X column, and also remove strings
-    X = data.drop(columns=["index", "League", "outcome"])
-    Y = data["outcome"].to_numpy()
+    X = data.drop(columns=np.intersect1d(data.columns, ["index", "League", "outcome", "homeScore", "awayScore", "homePoint", "awayPoint"]))
     cols=X.columns
-    # rescale
-    #X, Y = rescaleData(X, Y)
+
     # and split
-    xtrain, xtest, ytrain, ytest = train_test_split(X, Y, test_size=testSize, shuffle=True)
-    return {"x":xtrain, "y":ytrain}, {"x":xtest, "y":ytest}, cols
+    if hasY:
+        Y = data["outcome"].to_numpy()
+        xtrain, xtest, ytrain, ytest = train_test_split(X, Y, test_size=testSize, shuffle=True)
+        return {"x":xtrain, "y":ytrain}, {"x":xtest, "y":ytest}, cols
+
+    if testSize <= 0:
+            return {"x":X.sample(frac=1), "y":""}, {}, cols
+    
+    xtrain, xtest = train_test_split(X, test_size=testSize, shuffle=True)
+    return {"x":xtrain}, {"x":xtest}, cols
 
 def rescaleData(X, Y):
     ''' Rescale the data such that X values are between -1 and 1
@@ -112,7 +121,18 @@ def performace(model, trainData, testData):
     print("- Difference:{:0.4f}".format(diff))
     return atest, atrain
 
+def intersectIndex(ar1, ar2):
+    ''' Find the indicies of intersecting elements between two arrays.
+        ar1: the array to return the indices from. 
+        ar2: the array of shared things to search. '''
+    return np.intersect1d(ar1, ar2, return_indices=True)[1]
+
 def subData(data, idx=0):
+    # if the index is nonnumerical, use the intersection of strings
+    try:
+        idx = np.array(idx, dtype=np.float64)
+    except:
+        idx = intersectIndex(data["x"].columns, idx)
     # if the data is stored as a numpy array, we can use shorthand
     try:
         return {"x":data["x"][:,idx], "y":data["y"]}
@@ -133,8 +153,8 @@ def selectFeatures(trainData, testData, cols, n=4):
     # fetch the names of the best features
     ncols = ([cols[feat] for feat,idx in features])
     # fetch the required indicies from the data
-    ntrain = subData(trainData, np.array(features)[:,1])
-    ntest  = subData(testData, np.array(features)[:,1])
+    ntrain = subData(trainData, ncols)
+    ntest = subData(testData, ncols)
     # return
     return ntrain, ntest, ncols, features
 
@@ -200,6 +220,8 @@ def main():
     saveModel(sMod, "src/baseline.joblib")
     # select the best features
     ntrainData, ntestData, ncols, nfeat = selectFeatures(trainData, testData, cols, 5)
+    # and save the features
+    np.save("src/selectedFeatures.npy", ncols)
     # use the shorter dataset
     print(f"\nUsing the best {len(ncols)} features of the dataset")
     base2 = trainAndScore(sMod, ntrainData, ntestData)
