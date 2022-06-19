@@ -29,10 +29,10 @@ def loadData(file="src/cleaned_dataset.csv", testSize=0.2, hasY=True):
     else:
         print(file.split("/")[-1])
         data = pd.read_csv(file.split("/")[-1])
-    # remove NaN values
-    data = data.dropna(axis=1)
+    # remove columns that are completely N/A, and any rows that contain N/A
+    data = data.dropna(axis=1, how="all").dropna(axis=0)
     # remove the Y data from the X column, and also remove strings
-    X = data.drop(columns=np.intersect1d(data.columns, ["index", "League", "outcome", "homeScore", "awayScore", "homePoint", "awayPoint"]))
+    X = data.drop(columns=np.intersect1d(data.columns, ["index", "League", "outcome", "homeScore", "awayScore", "homeStreak", "awayStreak", "homeStreakTotal", "awayStreakTotal", "homePoint", "awayPoint", "awayGoal", "homeGoal", "awayGoalTotal", "homeGoalTotal"]))
     cols=X.columns
 
     # and split
@@ -141,6 +141,7 @@ def subData(data, idx=0):
         return {"x":data["x"].iloc[:,idx], "y":data["y"]}
 
 def selectFeatures(trainData, testData, cols, n=4):
+    n = min(len(trainData["x"].columns), n)
     # select the best 'n' features
     xnew = SelectKBest(chi2, k=n).fit_transform(trainData["x"], trainData["y"])
     # determine which columns from the training set correspond to the best features

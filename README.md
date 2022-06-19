@@ -66,4 +66,15 @@ The best model is then trained with subsets of the data that willbetter fit pote
 
 ## Milestone 5, Inference
 
-WIP
+Technologies: Sklearn, Pandas
+
+We now have a decently trained model (hopefully)
+
+The first step is to fetch new data that occured between [Current year] and 2020, and also the matches that will take place in the coming season.
+We run this through the same cleaning pipeline to generate our output csv files.
+
+The new data is given to our best model, and it is trained with that.
+
+With this in place, we can provide the model with our set of matches to take place, and generate a prediction for future games.
+
+With that, we have fully completed the entire pipeline.
